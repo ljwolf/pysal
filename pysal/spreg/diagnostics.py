@@ -285,7 +285,7 @@ def ar2(reg):
     """
     k = reg.k       # (scalar) number of ind. variables (includes constant)
     n = reg.n       # (scalar) number of observations
-    ar2_result = 1 - (1 - r2(reg)) * (n - 1) / (n - k)
+    ar2_result = 1 - (1 - r2(reg)) * (n - 1) / float(n - k)
     return ar2_result
 
 
@@ -410,7 +410,7 @@ def log_likelihood(reg):
     n = reg.n       # (scalar) number of observations
     utu = reg.utu   # (scalar) residual sum of squares
     ll_result = -0.5 * \
-        (n * (np.log(2 * math.pi)) + n * np.log(utu / n) + (utu / (utu / n)))
+        (n * (np.log(2 * math.pi)) + n * np.log(utu / float(n)) + (utu / (utu /float(n))))
     return ll_result
 
 
@@ -478,7 +478,7 @@ def akaike(reg):
     except AttributeError:           # OLS case
         n = reg.n       # (scalar) number of observations
         utu = reg.utu   # (scalar) residual sum of squares
-        aic_result = 2 * k + n * (np.log((2 * np.pi * utu) / n) + 1)
+        aic_result = 2 * k + n * (np.log((2 * np.pi * utu) / float(n)) + 1)
     return aic_result
 
 
