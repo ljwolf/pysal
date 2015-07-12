@@ -99,6 +99,10 @@ class BaseOLS(RegressionPropsY, RegressionPropsVM):
     """
 
     def __init__(self, y, x, robust=None, gwk=None, sig2n_k=True):
+        
+        RegressionPropsY.__init__(self)
+        RegressionPropsVM.__init__(self)
+
         self.x = x
         self.xtx = spdot(self.x.T, self.x)
         xty = spdot(self.x.T, y)
