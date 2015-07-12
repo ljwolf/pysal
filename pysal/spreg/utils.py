@@ -40,11 +40,19 @@ class RegressionPropsY:
             self._cache['mean_y'] = np.mean(self.y)
         return self._cache['mean_y']
 
+    @mean_y.setter
+    def mean_y(self, value):
+        self._cache['mean_y'] = value
+
     @property
     def std_y(self):
         if 'std_y' not in self._cache:
             self._cache['std_y'] = np.std(self.y, ddof=1)
         return self._cache['std_y']
+
+    @std_y.setter
+    def std_y(self, value):
+        self._cache['std_y'] = value
 
 
 class RegressionPropsVM:
@@ -108,7 +116,7 @@ class RegressionPropsVM:
 
     @vm.setter
     def vm(self, value):
-        self._cache['vm'] = vm
+        self._cache['vm'] = value
 
 
 def get_A1_het(S):
