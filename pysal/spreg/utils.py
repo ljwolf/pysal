@@ -76,11 +76,19 @@ class RegressionPropsVM:
             self._cache['utu'] = np.sum(self.u ** 2)
         return self._cache['utu']
 
+    @utu.setter
+    def utu(self, value):
+        self._cache['utu'] = value
+
     @property
     def sig2n(self):
         if 'sig2n' not in self._cache:
             self._cache['sig2n'] = self.utu / self.n
         return self._cache['sig2n']
+
+    @sig2n.setter
+    def sig2n(self, value):
+        self._cache['utu'] = value
 
     @property
     def sig2n_k(self):
@@ -88,11 +96,19 @@ class RegressionPropsVM:
             self._cache['sig2n_k'] = self.utu / (self.n - self.k)
         return self._cache['sig2n_k']
 
+    @sig2n_k.setter
+    def sig2n_k(self, value):
+        self._cache['sig2n_k'] = value
+
     @property
     def vm(self):
         if 'vm' not in self._cache:
             self._cache['vm'] = np.dot(self.sig2, self.xtxi)
         return self._cache['vm']
+
+    @vm.setter
+    def vm(self, value):
+        self._cache['vm'] = vm
 
 
 def get_A1_het(S):
