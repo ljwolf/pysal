@@ -13,7 +13,7 @@ import scipy.optimize as op
 import numpy.linalg as la
 from pysal import lag_spatial
 import copy
-
+from collections import defaultdict
 
 class RegressionPropsY:
 
@@ -33,6 +33,9 @@ class RegressionPropsY:
               Standard deviation of the dependent variable
 
     """
+    def __init__(self):
+        self._cache = defaultdict(float)
+
 
     @property
     def mean_y(self):
@@ -77,6 +80,9 @@ class RegressionPropsVM:
               Variance-covariance matrix (kxk)
 
     """
+    def __init__(self):
+        self._cache = defaultdict(float)
+
 
     @property
     def utu(self):
