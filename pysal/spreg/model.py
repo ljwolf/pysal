@@ -3,9 +3,16 @@ from __future__ import division
 import copy
 import numpy as np
 
-from pysal.core import check
-if check.pandas():
-    import pandas
+#until pysal.core.check gets merged upstream
+try:
+    from pysal.core import check
+    if check.pandas():
+        import pandas
+except:
+    class pandas(object):
+        pass
+    pandas.DataFrame = np.nan
+    
 from collections import defaultdict
 from functools import partial
 
