@@ -1,10 +1,13 @@
 from __future__ import division
 
-import pandas
 import copy
 
+from pysal.core import check
+if check.pandas():
+    import pandas
 from collections import defaultdict
 from numpy import array, hstack, allclose, newaxis
+from functools import partial
 
 class Linear_Model(object):
     """
@@ -19,8 +22,8 @@ class Linear_Model(object):
     data        : dataframe
                     pandas dataframe supporting column retrieval
     **kwargs    : dict
-                    variable length dictionary that gets flattened into model properties
-                    while checking against the current dictionary to avoid clobbering
+                    variable length dictionary that gets flattened into model
+                    properties.
     """
     def __init__(self, y, X, w=None, data=None, **kwargs):
         """
@@ -38,12 +41,17 @@ class Linear_Model(object):
             self.data = data
         
         ####### idea: store the large # of possible arguments in defaultdicts
-        #config -> strings describing choices about model properties
-        #options -> boolean flags about to indicate model properties
+        # Later checks against these defaultdicts won't KeyError out
+        # model subclasses can override defaults as needed
+        # config -> strings describing choices about model properties, '' default
+        # options -> boolean flags about to indicate model state, False default
+        
         self._options = defaultdict(bool)
         #self._options.update({k:v for k,v in kwargs.iteritems() if type(v) == bool})
         self._configs = defaultdict(str)
         #self._configs.update({k:v for k,v in kwargs.iteritems() if type(v) == str})
+
+        # For Example:
         if 'robust' in kwargs:
             if type(kwargs['robust']) == str:
                 self.robust = self._options['robust'] = True #link the entries
@@ -60,7 +68,7 @@ class Linear_Model(object):
             self.__dict__.update(kwargs)
         else:
             collided = kwargs.keys().index(True)
-            raise Exception('Duplicate argument encountered:{}'.format(collided))
+            raise Exception('Duplicate argument encountered:{}'.format(kwargs[collided]))
         
         #use pandas if provided
         papi = [str, list, pandas.DataFrame]
@@ -88,30 +96,58 @@ class Linear_Model(object):
             newmod = self.__deepcopy__()
             newmod.fit(inplace, **kwargs)
     
-    def center(self, inplace=True):
-        Xcolmeans = self.X
-        ymean = self.y.mean(axis=0)
+    colmean = partial(np.mean, axis=0)
+    def center(self, how=colmean, inplace=True):
+        """
+        Center the data around some column reduction.
+        """
         if inplace:
-            self.X = self.X - self.X.mean(axis=0)[newaxis,:]
-            self.y = self.y - self.y.mean()
+            self.X = self.X - how(self.X)[newaxis,:]
+            self.y = self.y - how(self.y)
             self._centered = True
         else:
             newmod = self.__deepcopy__()
-            newmod.X = newmod.X - newmod.X.mean(axis=0)[newaxis,:]
-            newmod.y = newmod.y - newmod.y.mean()
+            newmod.center(how = how, inplace=True)
             newmod._centered = True
             return newmod
 
-    def normalize(self, inplace=True, center=True):
+    colstd = partial(np.std, axis=0)
+    def rescale(self, how=colstd, inplace=True):
+        """
+        Scale the data by a column reduction.
+        """
+        if inplace:
+            self.X = self.X / how(self.X)[newaxis,:]
+            self.y = self.y / how(self.y)
+            self._rescaled = True
+        else:
+            newmod = self.__deepcopy__()
+            newmod.rescale(how=how, inplace=True)
+            newmod._rescaled = True
+            return newmod
+
+
+    def normalize(self, inplace=True, center=True, **kwargs):
+        """
+        Normalize the data using a scale reduction and a centering reduction
+        """
+        if 'center_how' in kwargs:
+            center_how = kwargs['center_how']
+        else:
+            center_how = colmean
+
+        if 'scale_how' in kwargs:
+            scale_how = kwargs['scale_how']
+        else:
+            scale_how = colstd
+
         if inplace and center:
-            self.center()
-            self.X = self.X / self.X.std(axis=0)
-            self.y = self.y / self.y.std()
+            self.center(how=center_how)
+            self.rescale(how=sclae_how)
             self._normalized = True
         elif center:
-            newmod = self.center(inplace=False)
-            newmod.X = newmod.X / newmod.X.std(axis=0)
-            newmod.y = newmod.y / newmod.y.std()
+            newmod = self.center(how=center_how, inplace=False)
+            newmod.rescale(how=scale_how)
             newmod._normalized=True
             return newmod
     
@@ -131,7 +167,11 @@ class Linear_Model(object):
         else:
             return True
  
-    def _check_conformal(self, *args):
+    def _check_conformal(self, *args, **kwargs):
+        if hasattr(kwargs, 'axis'):
+            axis = axis
+        else:
+            axis = 0
         return all([args[i].shape[0] == args[i+1].shape[0] for i in range(len(args)-1)])
 
     def _check_hac(self):
