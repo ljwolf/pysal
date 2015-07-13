@@ -345,10 +345,6 @@ if __name__ == '__main__':
     mod3 = Linear_Model(y, X, robust='white')
     print('Robust:', mod3._options['robust'], ' using', mod3._configs['robust'])
 
-    # As an exmaple, I've implemented a test that checks if you've provided
-    # the right parameters to conduct a hac-robust regression. These kinds of
-    # tests can get extended.
-
     # right now, this just passes, but once linked, it would modify the model in
     # in place or return a copy of the model after being fit.
 
@@ -359,6 +355,11 @@ if __name__ == '__main__':
     mod.fit()
     print('mod is fitted?:', mod._fitted)
 
+    # As an exmaple, I've implemented a test that checks if you've provided
+    # the right parameters to conduct a hac-robust regression. These kinds of
+    # tests can get extended.
+    
+    # This invocation fails because we don't pass a gwk matrix. 
     print('Our new model will fail out because we dont have a gwk matrix')
     print('    and robust=True defaults to hac')
     mod_fail = Linear_Model(y, X, robust = True) #defaults to 'hac', remember?
