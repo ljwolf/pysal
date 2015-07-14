@@ -48,7 +48,7 @@ class Linear_Model(object):
         self.y = y
         self.X = X # need to check for constant vector 
         self.w = w
-        self.n = self.y.shape[0]
+        self.n, self.k = self.X.shape
         
         if data is None:
             self.data = np.hstack((y, X))
@@ -107,6 +107,7 @@ class Linear_Model(object):
                 X = self.data[X].values
         
         self._fitted = False
+        
         # This should always end the init, and should get modified if 
         # subclasses need new tests. So, like, _check_regimes can get added to a
         # regime regression. I've written validate to inspect the object's
@@ -118,26 +119,33 @@ class Linear_Model(object):
         # ONCE. So, for instance, if we call the generic Linear_Model.__init__()
         # from withina subclass, we want to _validate() THERE, not in the parent.
         
-        if type(self) ==Linear_Model:
+        if type(self) == Linear_Model:
             self._validate()
 
 
     #############
     #   PUBLIC  #
     #############
+
     def fit(self, inplace=True, **kwargs):
         """
-        Fit a model using parameters passed.
+        Fit a model using parameters passed. The parent class solver calls
+        a revolutionary new solver called the "noop solver" that does nothing and
+        returns the model unsolved. It can also noop solve the solver in place. 
         """
         ##execute solver-specific code here
         if inplace:
             self._fitted = True
+            self._solver(self, inplace=True, **kwargs)
             return None
         else:
             newmod = self.__deepcopy__()
             newmod.fit(inplace=True, **kwargs)
             return newmod
     
+    # could put stuff like Box-Cox, log, etc in here, too. Maybe like a generic
+    # "transform" method whose subclasses might call things like regime
+    # reshuffle, w-standardize, or merge regime?
     def center(self, how=_colmean, inplace=True):
         """
         Center the data around some column reduction.
@@ -283,6 +291,17 @@ class Linear_Model(object):
             axis = 0
         return all([args[i].shape[1] == args[i+1].shape[0] for i in range(len(args)-1)])
     
+    @staticmethod #i.e. defined without a self. 
+    def _solver(*args, **kwargs):
+        """
+        The conceptual statement of the model has no solver associated with it. 
+        """
+        if 'verbose' in kwargs:
+            print 'No Model Assigned.'
+        else:
+            pass
+        return None
+
     #############
     #   MAGIC   #
     #############
