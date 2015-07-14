@@ -46,6 +46,8 @@ class Linear_Model(object):
         """
         #stick basic attributes inside of model
         self.y = y
+        self.mean_y = y.mean()
+        self.mean_x = _colmean(self.X)
         self.X = X # need to check for constant vector 
         self.w = w
         self.n, self.k = self.X.shape
