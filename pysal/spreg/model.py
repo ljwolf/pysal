@@ -46,11 +46,11 @@ class Linear_Model(object):
         """
         #stick basic attributes inside of model
         self.y = y
-        self.mean_y = y.mean()
-        self.mean_x = _colmean(self.X)
-        self.X = X # need to check for constant vector 
+        self.x = X # need to check for constant vector 
         self.w = w
-        self.n, self.k = self.X.shape
+        self.n, self.k = self.x.shape
+        self.mean_y = y.mean()
+        self.mean_x = _colmean(self.x)
         
         if data is None:
             self.data = np.hstack((y, X))
@@ -153,7 +153,7 @@ class Linear_Model(object):
         Center the data around some column reduction.
         """
         if inplace:
-            self.X = self.X - how(self.X)[np.newaxis,:]
+            self.x = self.x - how(self.x)[np.newaxis,:]
             self.y = self.y - how(self.y)
             self._centered = True
             return None
@@ -168,7 +168,7 @@ class Linear_Model(object):
         Scale the data by a column reduction.
         """
         if inplace:
-            self.X = self.X / how(self.X)[np.newaxis,:]
+            self.x = self.x / how(self.x)[np.newaxis,:]
             self.y = self.y / how(self.y)
             self._rescaled = True
             return None
@@ -249,7 +249,7 @@ class Linear_Model(object):
         """
         y and X must be passed, and they need to be conformal.
         """
-        if self.__check_conformal(self.y.T, self.X):
+        if self.__check_conformal(self.y.T, self.x):
             return True, None
         else:
             return False, "y and X vector are not conformal"
@@ -312,7 +312,7 @@ class Linear_Model(object):
         # return independent model object with identical configuration.
         
         # an admittedly naive implementation
-        newmod = Linear_Model(self.y, self.X, self.w, self.data)
+        newmod = Linear_Model(self.y, self.x, self.w, self.data)
         newmod.__dict__.update(copy.deepcopy(self.__dict__))
         return newmod
 
@@ -321,14 +321,14 @@ class Linear_Model(object):
         # return model object with identical configuration, but points to original.
 
         # another naive implementation
-        newmod = Linear_Model(self.y, self.X, self.w, self.data)
+        newmod = Linear_Model(self.y, self.x, self.w, self.data)
         newmod.__dict.update(self.__dict__)
         return newmod
 
     def __eq__(self, other):
         if type(other) != type(self):
             return False
-        elif np.allclose(self,y, other.y) and np.allclose(self.X, self.X): 
+        elif np.allclose(self,y, other.y) and np.allclose(self.x, self.x): 
             # add to this list, check parameters? This is a design discussion.
             return True
 
@@ -348,7 +348,7 @@ class Linear_Model(object):
             pass
 
     def __len__(self):
-        return self.X
+        return self.x
 
     def __call__(self, inplace=True, **kwargs):
         self.fit(self, inplace, **kwargs) #allows for Model(method='ols') to fit the model

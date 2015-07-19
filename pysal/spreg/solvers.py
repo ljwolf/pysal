@@ -32,7 +32,7 @@ def vcov(model, method):
     if method == 'tsls':
         xu = spbroadcast(model.h, model.u) #model.h is defined if an h param is passed
     else:
-        xu = spbroadcast(model.X, model.u)
+        xu = spbroadcast(model.x, model.u)
     if not model._options['robust']:  #check to see if we need to do robust estimation:
         return np.dot(model.sig2, model.xtxi)
     elif model._config['robust'] == 'hac':
@@ -56,11 +56,12 @@ def ols_solver(mod, inplace=True):
     """
     if inplace:
         model = mod
-        model.xty = spdot(model.X.T, mod.y)
+        model.xty = spdot(model.x.T, mod.y)
+        model.xtx = np.dot(model.x.T, model.x)
 
-        model.xtxi = np.linalg.inv(np.dot(model.X.T, model.X))
+        model.xtxi = np.linalg.inv(np.dot(model.x.T, model.x))
         model.betas = np.dot(model.xtxi, model.xty)
-        model.predy = spdot(model.X, model.betas)
+        model.predy = spdot(model.x, model.betas)
         
         model.u = model.y - model.predy
         model.utu = np.sum(model.u **2)
