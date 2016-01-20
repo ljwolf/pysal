@@ -19,16 +19,13 @@ def minimum_bounding_circle(points, not_hull=True):
     2b. If not, remove p from set. 
     """
     points = [points[i] for i in ConvexHull(points).vertices]
-    if not_clockwise(points):
-        points.reverse()
-        if not_clockwise(points):
-            raise Exception('Points are neither clockwise nor counterclockwise')
+    points.reverse() #shift from ccw to cw
     POINTS = copy.deepcopy(points)
     removed = []
     i=0
     while True:
-        angles = [_angle(_prec(p, points), p, _succ(p, points)) for p in points]
-        circles = [_circle(_prec(p, points), p, _succ(p, points)) for p in points]
+        angles = [_angle(*_neighb(p, points)) for p in points]
+        circles = [_circle(*_neighb(p, points)) for p in points]
         radii = [c[0] for c in circles]
         lexord = np.lexsort((radii, angles)) #confusing as hell defaults...
         lexmax = lexord[-1]
@@ -70,6 +67,12 @@ def _succ(p,l):
     else:
         return l[pos+1]
 
+def _neighb(p,l):
+    """
+    sandwich p with the predecessor and successor of p in cycle l
+    """
+    return _prec(p, l), p, _succ(p,l)
+
 def _circle(p,q,r, dmetric=dist.euclidean):
     """
     Returns (radius, (center_x, center_y)) of the circumscribed circle by the
@@ -88,12 +91,12 @@ def _circle(p,q,r, dmetric=dist.euclidean):
     #else:
         #print p,q,r, "all are different"
 
-    if np.allclose((qy - py) * (rx - qx), (ry - qy) * (qx - px)):
-        center_x = center_y = radius = np.inf
-    elif np.allclose(np.abs(_angle(p,q,r)), 0):
+    if np.allclose(np.abs(_angle(p,q,r)), 0):
         radius = dmetric(p,q)/2.
         center_x = (px + qx)/2.
         center_y = (py + qy)/2.
+    elif np.allclose((qy - py) * (rx - qx), (ry - qy) * (qx - px)):
+        center_x = center_y = radius = -np.inf
     else:
         D = 2*(px*(qy - ry) + qx*(ry - py) + rx*(py - qy))
         center_x = ((px**2 + py**2)*(qy-ry) + (qx**2 + qy**2)*(ry-py) 
