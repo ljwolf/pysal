@@ -65,7 +65,6 @@ def reock(chain):
     The Reock compactness measure, defined by the ratio of areas between the
     minimum bounding/containing circle of a shape and the shape itself. 
     """
-    pointset = [point for part in chain.parts for point in part[:-1]] #drop close
     radius, (cx, cy) = minimum_bounding_circle(pointset)
     return chain.area / (PI * radius ** 2)
 
