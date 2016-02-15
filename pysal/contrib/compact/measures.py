@@ -5,7 +5,7 @@ from scipy.spatial import distance as _dst
 import numpy as np
 
 from . import _util as _u
-from .mbc import minimum_bounding_circle as _mbc
+from .minbc import minimum_bounding_circle as _mbc
 from ._amoments import second_moa
 
 __all__ = ['ipq','iaq','convex_hull','reock', 'nmi', 
