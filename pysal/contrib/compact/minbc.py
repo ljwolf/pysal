@@ -140,8 +140,8 @@ def _circle(A,B,C, dmetric=dist.euclidean):
     Cx,Cy = dec.Decimal(C[0]), dec.Decimal(C[1])
     if np.array_equal([Ax,Ay], [Bx,By]) or np.array_equal([Bx,By],[Cx,Cy]):
         Warn('Duplicate neighboring point detected!')
-    elif np.abs(_angle(A,B,C)) == 0:
-        print('angle close to zero')
+    elif np.allclose(_angle(A,B,C), 0):
+        #Warn('angle close to zero')
         radii = dist.euclidean(A,B)/2.
         center_x = float(Ax + Bx)/2.
         center_y = float(Ay + By)/2.
