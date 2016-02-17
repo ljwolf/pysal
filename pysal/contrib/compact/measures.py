@@ -8,7 +8,7 @@ from . import _util as _u
 from .minbc import minimum_bounding_circle as _mbc
 from ._amoments import second_moa
 
-__all__ = ['ipq','iaq','convex_hull','reock', 'nmi', 
+__all__ = ['ipq','iaq','convex_hull','reock', 'nmi', 'moa_ratio',
            'moment_of_inertia', 'flaherty_crumplin_radius','taylor_reflexive',
            'flaherty_crumplin_lw','eig_seitzinger', 
            'polsby_popper', 'schwartzberg']
@@ -84,6 +84,15 @@ def nmi(chain):
     its second moment of area. 
     """
     return chain.area**2 / (2 * second_moa(chain) * _PI)
+
+def moa_ratio(chain):
+    """
+    Computes the ratio of the second moment of area (like Li et al (2013)) to
+    the moment of area of a circle with the same area. 
+    """
+    r = chain.perimeter / (2 * _PI)
+    return (_PI * .5 * r**4) / second_moa(chain)
+
 
 ## ---- Altman's OS Measures ---- ##
 

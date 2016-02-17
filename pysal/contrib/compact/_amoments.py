@@ -40,5 +40,5 @@ def second_moa(chain):
             second = (thisx*nexty - nextx*thisy)
             moment += first*second
         outer_I += moment
-    return np.abs(outer_I) - np.abs(hole_I)
+    return (1/24) * (np.abs(outer_I) - np.abs(hole_I))
 
