@@ -72,4 +72,3 @@ CREATE OR REPLACE
           RETURNS double precision AS
                $$ SELECT COM_LW_5(geom); $$
          LANGUAGE SQL;
-
