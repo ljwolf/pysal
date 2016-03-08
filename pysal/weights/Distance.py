@@ -170,13 +170,13 @@ class Kernel(W):
     Attributes
     ----------
     weights : dict
-	      Dictionary keyed by id with a list of weights for each neighbor
+              Dictionary keyed by id with a list of weights for each neighbor
 
     neighbors : dict
-		of lists of neighbors keyed by observation id
+                of lists of neighbors keyed by observation id
 
     bandwidth : array
- 		array of bandwidths
+                array of bandwidths
 
     Examples
     --------
@@ -338,7 +338,7 @@ class Kernel(W):
         for i, nids in enumerate(self.neigh):
             di, ni = kdtq(self.data[i], k=len(nids))
             if not isinstance(di, np.ndarray):
-            	di = np.asarray([di] * len(nids))
+                di = np.asarray([di] * len(nids))
                 ni = np.asarray([ni] * len(nids))
             zi = np.array([dict(zip(ni, di))[nid] for nid in nids]) / bw[i]
             z.append(zi)
@@ -392,10 +392,10 @@ class DistanceBand(W):
     Attributes
     ----------
     weights : dict
-	      of neighbor weights keyed by observation id
+              of neighbor weights keyed by observation id
 
     neighbors : dict
-		of neighbors keyed by observation id
+                of neighbors keyed by observation id
 
     Examples
     --------
@@ -411,8 +411,13 @@ class DistanceBand(W):
     >>> w=DistanceBand(points,threshold=14.2)
     >>> w.weights
     {0: [1, 1], 1: [1, 1, 1], 2: [1], 3: [1, 1], 4: [1, 1, 1], 5: [1]}
-    >>> w.neighbors
-    {0: [1, 3], 1: [0, 3, 4], 2: [4], 3: [1, 0], 4: [5, 1, 2], 5: [4]}
+    >>> ps.weights.util.neighbor_equality(w,pysal.W( {0: [1, 3], 1: [0, 3, 4],
+                                                     2: [4], 3: [1, 0], 4:
+                                                     [5, 2, 1], 5: [4]}))
+    True
+
+
+
 
     inverse distance weights
 
@@ -485,22 +490,24 @@ class DistanceBand(W):
         if self.binary:
             for key,weight in self.dmat.items():
                 i,j = key
-                if j not in neighbors[i]:
-                    weights[i].append(1)
-                    neighbors[i].append(j)
-                if i not in neighbors[j]:
-                    weights[j].append(1)
-                    neighbors[j].append(i)
+                if i != j:
+                    if j not in neighbors[i]:
+                        weights[i].append(1)
+                        neighbors[i].append(j)
+                    if i not in neighbors[j]:
+                        weights[j].append(1)
+                        neighbors[j].append(i)
 
         else:
             for key,weight in self.dmat.items():
                 i,j = key
-                if j not in neighbors[i]:
-                    weights[i].append(weight**self.alpha)
-                    neighbors[i].append(j)
-                if i not in neighbors[j]:
-                    weights[j].append(weight**self.alpha)
-                    neighbors[j].append(i)
+                if i != j:
+                    if j not in neighbors[i]:
+                        weights[i].append(weight**self.alpha)
+                        neighbors[i].append(j)
+                    if i not in neighbors[j]:
+                        weights[j].append(weight**self.alpha)
+                        neighbors[j].append(i)
 
         return neighbors, weights
 
