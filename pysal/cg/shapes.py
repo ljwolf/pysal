@@ -11,9 +11,11 @@ import math
 from warnings import warn
 from sphere import arcdist
 import numpy as np
+import types
 
 __all__ = ['Point', 'LineSegment', 'Line', 'Ray', 'Chain', 'Polygon',
-           'Rectangle', 'asShape']
+           'Rectangle', 'asShape', '_geoJSON_type_to_Pysal_type']
+
 
 
 def asShape(obj):
@@ -45,6 +47,12 @@ class Geometry(object):
     """
     def __init__(self):
         pass
+    def __eq__(self):
+        return False
+    def is_empty(self):
+        return self._empty
+    def is_closed(self):
+        return self._closed
 
 class Point(Geometry):
     """
@@ -352,6 +360,13 @@ class Point(Geometry):
         return str(self.__loc)
         return "POINT ({} {})".format(*self.__loc)
 
+    @property
+    def is_closed(self):
+        return True
+
+    @property
+    def is_empty(self):
+        return False
 
 class LineSegment(Geometry):
     """
@@ -401,6 +416,7 @@ class LineSegment(Geometry):
         """
         self._p1 = start_pt
         self._p2 = end_pt
+        self._closed = True
         self._reset_props()
 
     def __str__(self):
@@ -456,8 +472,7 @@ class LineSegment(Geometry):
         ccw4 = other.sw_ccw(self.p2)
 
         return ccw1*ccw2 <= 0 and ccw3*ccw4 <=0
-
-
+    
 
     def _reset_props(self):
         """
@@ -479,6 +494,7 @@ class LineSegment(Geometry):
         self._bounding_box = None
         self._len = None
         self._line = False
+        self._closed = True
 
     def _get_p1(self):
         """
@@ -783,82 +799,14 @@ class LineSegment(Geometry):
                 self._line = Line(m, b)
         return self._line
 
+    @property
+    def is_closed(self):
+        return self._closed
 
-class VerticalLine(Geometry):
-    """
-    Geometric representation of verticle line objects.
+    @property
+    def is_empty(self):
+        return False
 
-    Attributes
-    ----------
-    x       : float
-              x-intercept
-    """
-    def __init__(self, x):
-        """
-        Returns a VerticalLine object.
-
-        __init__(number) -> VerticalLine
-
-        Parameters
-        ----------
-        x : the x-intercept of the line
-
-        Attributes
-        ----------
-
-        Examples
-        --------
-        >>> ls = VerticalLine(0)
-        >>> ls.m
-        inf
-        >>> ls.b
-        nan
-        """
-        self._x = float(x)
-        self.m = float('inf')
-        self.b = float('nan')
-
-    def x(self, y):
-        """
-        Returns the x-value of the line at a particular y-value.
-
-        x(number) -> number
-
-        Parameters
-        ----------
-        y : the y-value to compute x at
-
-        Attributes
-        ----------
-
-        Examples
-        --------
-        >>> l = VerticalLine(0)
-        >>> l.x(0.25)
-        0.0
-        """
-        return self._x
-
-    def y(self, x):
-        """
-        Returns the y-value of the line at a particular x-value.
-
-        y(number) -> number
-
-        Parameters
-        ----------
-        x : the x-value to compute y at
-
-        Attributes
-        ----------
-
-        Examples
-        --------
-        >>> l = VerticalLine(1)
-        >>> l.y(1)
-        nan
-        """
-        return float('nan')
 
 
 class Line(Geometry):
@@ -950,8 +898,92 @@ class Line(Geometry):
             return self.b
         return self.m * x + self.b
 
+    @property
+    def is_closed(self):
+        return False
 
-class Ray:
+class VerticalLine(Line):
+    """
+    Geometric representation of verticle line objects.
+
+    Attributes
+    ----------
+    x       : float
+              x-intercept
+    """
+    def __init__(self, x):
+        """
+        Returns a VerticalLine object.
+
+        __init__(number) -> VerticalLine
+
+        Parameters
+        ----------
+        x : the x-intercept of the line
+
+        Attributes
+        ----------
+
+        Examples
+        --------
+        >>> ls = VerticalLine(0)
+        >>> ls.m
+        inf
+        >>> ls.b
+        nan
+        """
+        self._x = float(x)
+        self.m = float('inf')
+        self.b = float('nan')
+
+    def x(self, y):
+        """
+        Returns the x-value of the line at a particular y-value.
+
+        x(number) -> number
+
+        Parameters
+        ----------
+        y : the y-value to compute x at
+
+        Attributes
+        ----------
+
+        Examples
+        --------
+        >>> l = VerticalLine(0)
+        >>> l.x(0.25)
+        0.0
+        """
+        return self._x
+
+    def y(self, x):
+        """
+        Returns the y-value of the line at a particular x-value.
+
+        y(number) -> number
+
+        Parameters
+        ----------
+        x : the x-value to compute y at
+
+        Attributes
+        ----------
+
+        Examples
+        --------
+        >>> l = VerticalLine(1)
+        >>> l.y(1)
+        nan
+        """
+        return float('nan')
+
+    @property
+    def is_closed(self):
+        return False
+
+
+class Ray(object):
     """
     Geometric representation of ray objects.
 
@@ -988,7 +1020,11 @@ class Ray:
         """
         self.o = origin
         self.p = second_p
+        self._origin_inclusive = True 
 
+    @property
+    def is_closed(self):
+        return False
 
 class Chain(Geometry):
     """
@@ -1073,6 +1109,7 @@ class Chain(Geometry):
         self._len = None
         self._arclen = None
         self._bounding_box = None
+        self._closed = True
 
     @property
     def vertices(self):
@@ -1195,6 +1232,10 @@ class Chain(Geometry):
         Returns the segments that compose the Chain
         """
         return [[LineSegment(a, b) for (a, b) in zip(part[:-1], part[1:])] for part in self._vertices]
+
+    @property
+    def is_closed(self):
+        return self._closed
 
 
 class Ring(Geometry):
@@ -1399,8 +1440,10 @@ class Ring(Geometry):
         else:
             return True
 
-
-
+    @property
+    def is_closed(self):
+        return True
+    
 
 class Polygon(Geometry):
     """
@@ -1511,6 +1554,7 @@ class Polygon(Geometry):
         self._area = None
         self._centroid = None
         self._len = None
+        self._closed = True
 
     def __len__(self):
         return self.len
@@ -1775,10 +1819,14 @@ class Polygon(Geometry):
                 return True
 
         return False
+    
+    @property
+    def is_closed(self):
+        return self._closed
 
 
 
-class Rectangle(Geometry):
+class Rectangle(Polygon):
     """
     Geometric representation of rectangle objects.
 
@@ -1829,6 +1877,7 @@ class Rectangle(Geometry):
         self.lower = float(lower)
         self.right = float(right)
         self.upper = float(upper)
+        self._closed = True
 
     def __nonzero__(self):
         """
@@ -1979,9 +2028,24 @@ class Rectangle(Geometry):
         """
         return self.upper - self.lower
 
+    @property
+    def is_closed(self):
+        return self._closed
+
+def ogc_type(sh):
+    """
+    This is a function to compute the OGC TYpe of a given PySAL geometry, and is
+    an inverse mapping of pysal.cg.shapes._geoJSON_type_to_Pysal_type
+
+    PySAL types Polygon and Chain require computing the length of 
+    """
+    try:
+        return self.__geo_interface__['type']
+    except AttributeError:
+        return None
 
 _geoJSON_type_to_Pysal_type = {'point': Point, 'linestring': Chain, 'multilinestring': Chain,
-                               'polygon': Polygon, 'multipolygon': Polygon}
+                               'polygon': Polygon, 'multipolygon': Polygon,
+                               'linearring':Ring, 'line':LineSegment,
+                               'geometry':Geometry}
 import standalone  # moving this to top breaks unit tests !
-
-
