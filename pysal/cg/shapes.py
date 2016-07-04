@@ -11,6 +11,7 @@ import math
 from warnings import warn
 from sphere import arcdist
 import numpy as np
+import copy
 import types
 
 __all__ = ['Point', 'LineSegment', 'Line', 'Ray', 'Chain', 'Polygon',
@@ -470,6 +471,25 @@ class LineSegment(Geometry):
         ccw2 = self.sw_ccw(other.p1)
         ccw3 = other.sw_ccw(self.p1)
         ccw4 = other.sw_ccw(self.p2)
+      
+        # with open sets, this is a little complex. So, if they're coincident,
+        # they intersect always, regardless of openness
+        if ccw1 == ccw2 == ccw3 == ccw4 == 0:
+            return True
+
+        # then, if a set is open, we need to handle the case when the Sedgewick
+        # test returns 0. We re-assign interior collinear points according to
+        # the side of the non-collinear point.
+        if not other.is_closed:
+            if ccw3 == 0: 
+                ccw3 = ccw4
+            if ccw4 == 0:
+                ccw4 = ccw3
+        elif not self.is_closed:
+            if ccw1 == 0:
+                ccw1 = ccw2
+            if ccw2 == 0:
+                ccw2 = ccw1
 
         return ccw1*ccw2 <= 0 and ccw3*ccw4 <=0
     
@@ -1824,7 +1844,76 @@ class Polygon(Geometry):
     def is_closed(self):
         return self._closed
 
+    @property
+    def _hole_head_in_parts(self):
+        """
+        This is a property that cheaply determines which exterior boundary
+        the head of a ring falls into using ring.contains_point. This only
+        checks the ring the closing point falls within. 
+        """ 
+        try:
+            return self.__holes_in_parts
+        except AttributeError:
+            hole_heads = [h[0] for h in self.holes]
+            hole_array = np.asarray(self._hole_rings)
+            count_array = np.zeros_like(hole_array)
+            nesting = []
+            for i, ring in enumerate(self._part_rings):
+                hole_in_ring = np.asarray([ring.contains_point(h) 
+                                           for h in hole_heads])
+                nesting.append(tuple((ring,) + tuple(hole_array[hole_in_ring].tolist())))
+                count_array[hole_in_ring] += 1 
+            if sum(count_array) > len(self.holes):
+                warn('There is not a one-to-one mapping between holes and'
+                     ' exterior rings! The following holes are in more than one'
+                     '   ring: {}')
+            self.__holes_in_parts = nesting
+            return self.__holes_in_parts
 
+    @property
+    def _whole_hole_in_parts(self):
+        """
+        This is a property that expensively determines whether a hole is
+        completely within a ring using contains_point over the vertices. This
+        checks that all vertices of the hole ring fall within a given ring. 
+        """
+        try:
+            return self.__holes_in_parts
+        except AttributeError:
+            hole_array = np.asarray(self._hole_rings)
+            count_array = np.zeros_like(hole_array)
+            nesting = []
+            for i, ring in enumerate(self._part_rings):
+                nesting.append(ring)
+                for h in self.holes:
+                    hole_in_ring = [ring.contains_point(pt) for pt in h]
+                    if len(np.unique(h)) != 1:
+                        warn('Hole {} is only partially contained in ring'
+                             ' {}'.format(h, ring))
+                    elif all(hole_in_ring):
+                        nesting[i] += nesting[i] + h
+                count_array[hole_in_ring] += 1 
+            if sum(count_array) > len(holes):
+                warn('There is not a one-to-one mapping between holes and'
+                     ' exterior rings! The following holes are in more than one'
+                     ' ring: {}')
+            self.__holes_in_parts = nesting
+            return self.__holes_in_parts
+    
+    @property
+    def is_valid(self):
+        hole_chains = [Chain(r.vertices).segments for r in self._hole_rings]
+        part_chains = [Chain(r.vertices).segments for r in self._part_rings]
+        segment_set = set([])
+        [[segment_set.update(pt) for pt in ch] for ch in hole_chains]
+        [[segment_set.update(pt) for pt in ch] for ch in part_chains]
+        while segment_set:
+            current = segment_set.pop()
+            current._closed = False
+            self_intersecting =[current.intersect(other) for other in segment_set]
+            if any(self_intersecting):
+                return current, segment_set
+        return True
 
 class Rectangle(Polygon):
     """
