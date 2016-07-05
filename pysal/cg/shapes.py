@@ -13,6 +13,7 @@ from sphere import arcdist
 import numpy as np
 import copy
 import types
+import operator as op
 
 __all__ = ['Point', 'LineSegment', 'Line', 'Ray', 'Chain', 'Polygon',
            'Rectangle', 'asShape', '_geoJSON_type_to_Pysal_type']
@@ -52,8 +53,8 @@ class Geometry(object):
         return False
     def is_empty(self):
         return self._empty
-    def is_closed(self):
-        return self._closed
+    def _is_open(self):
+        return self._open
 
 class Point(Geometry):
     """
@@ -362,8 +363,8 @@ class Point(Geometry):
         return "POINT ({} {})".format(*self.__loc)
 
     @property
-    def is_closed(self):
-        return True
+    def _is_open(self):
+        return False
 
     @property
     def is_empty(self):
@@ -397,7 +398,7 @@ class LineSegment(Geometry):
 
     """
 
-    def __init__(self, start_pt, end_pt):
+    def __init__(self, start_pt, end_pt, open_set = False):
         """
         Creates a LineSegment object.
 
@@ -417,7 +418,7 @@ class LineSegment(Geometry):
         """
         self._p1 = start_pt
         self._p2 = end_pt
-        self._closed = True
+        self._open = open_set
         self._reset_props()
 
     def __str__(self):
@@ -480,12 +481,12 @@ class LineSegment(Geometry):
         # then, if a set is open, we need to handle the case when the Sedgewick
         # test returns 0. We re-assign interior collinear points according to
         # the side of the non-collinear point.
-        if not other.is_closed:
+        if other._is_open:
             if ccw3 == 0: 
                 ccw3 = ccw4
             if ccw4 == 0:
                 ccw4 = ccw3
-        elif not self.is_closed:
+        elif self._is_open:
             if ccw1 == 0:
                 ccw1 = ccw2
             if ccw2 == 0:
@@ -514,7 +515,7 @@ class LineSegment(Geometry):
         self._bounding_box = None
         self._len = None
         self._line = False
-        self._closed = True
+        self._open = False
 
     def _get_p1(self):
         """
@@ -696,9 +697,6 @@ class LineSegment(Geometry):
         else:
             return 1
 
-
-
-
     def get_swap(self):
         """
         Returns a LineSegment object which has its endpoints swapped.
@@ -820,13 +818,49 @@ class LineSegment(Geometry):
         return self._line
 
     @property
-    def is_closed(self):
-        return self._closed
+    def _open(self):
+        try:
+            return self.__open
+        except AttributeError:
+            self.__open = 0
+            return self.__open
+
+    @_open.setter
+    def _open(self, val):
+        """
+        A Line segment has 4 possible open values: 0/False, 1/True, 2, 3. 
+
+        0/False means the segment contains both its endpoints. 
+        1/True means the segment contains neither of its endpoints. 
+        2 means the first point in the segment is an "open" point.  
+        3 means the second point in the segment is an "open" point. 
+
+        This enforces that an assignment to _open reduces to one of these four
+        options. 
+        """
+        if isinstance(val, bool):
+            val = int(val)
+        elif isinstance(val, int) and val not in [0,1,2,3]:
+            raise TypeError('Open status is "{}", but must be a value in'
+                            ' {0,1,2,3}'.format(val))
+        self.__open = val
+
+    @property
+    def _is_open(self):
+        """
+        Note, this casts the possibly-directional _open to a bool. This is
+        because _open actually has 4 states: 0 when the line segment is closed,
+        1 when both end points are open, 2 when only the starting point is an open point, 
+        and 3 when only the ending point is an open point. 
+        """
+        return self._open > 0
 
     @property
     def is_empty(self):
         return False
 
+    def __hash__(self):
+        return hash((self.p1, self.p2))
 
 
 class Line(Geometry):
@@ -919,8 +953,8 @@ class Line(Geometry):
         return self.m * x + self.b
 
     @property
-    def is_closed(self):
-        return False
+    def _is_open(self):
+        return True
 
 class VerticalLine(Line):
     """
@@ -999,9 +1033,11 @@ class VerticalLine(Line):
         return float('nan')
 
     @property
-    def is_closed(self):
-        return False
+    def _is_open(self):
+        return True
 
+    def __hash__(self):
+        return hash(self._x)
 
 class Ray(object):
     """
@@ -1043,8 +1079,11 @@ class Ray(object):
         self._origin_inclusive = True 
 
     @property
-    def is_closed(self):
-        return False
+    def _is_open(self):
+        return True
+
+    def __hash__(self):
+        return hash(self.o, self.p)
 
 class Chain(Geometry):
     """
@@ -1060,7 +1099,7 @@ class Chain(Geometry):
 
     """
 
-    def __init__(self, vertices):
+    def __init__(self, vertices, open_set=False):
         """
         Returns a chain created from the points specified.
 
@@ -1068,7 +1107,11 @@ class Chain(Geometry):
 
         Parameters
         ----------
-        vertices : list -- Point list or list of Point lists.
+        vertices : list
+                   Point list or list of Point lists.
+        open     : bool
+                   Indicator of whether the chain is an open point set,
+                   meaning it does not include its boundary.
 
         Attributes
         ----------
@@ -1081,23 +1124,32 @@ class Chain(Geometry):
             self._vertices = [part for part in vertices]
         else:
             self._vertices = [vertices]
+        self._open = open_set
         self._reset_props()
     
-    def _eq__(self, other):
-        is_chain = isinstance(other, type(self))
-        try:
-            is_nearly = np.array_equal(np.asarray(self.vertices),
-                                       np.asarray(other.vertices))
-        except AttributeError:
-            is_nearly = False
-        return is_chain and is_nearly
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        if self._is_open != other._is_open:
+            return False
+
+        is_equal = True
+        for part in self.parts:
+            is_equal &= part in other.parts
+            if not is_equal:
+                return False
+        return is_equal 
+
+    def __hash__(self):
+        part_tups = tuple([tuple(part) for part in self.parts])
+        return hash(part_tups)
 
     @classmethod
     def __from_geo_interface__(cls, geo):
         if geo['type'].lower() == 'linestring':
-            verts = [Point(pt) for pt in geo['coordinates']]
+            verts = [pt for pt in geo['coordinates']]
         elif geo['type'].lower() == 'multilinestring':
-            verts = [map(Point, part) for part in geo['coordinates']]
+            verts = [part for part in geo['coordinates']]
         else:
             raise TypeError('%r is not a Chain'%geo)
         return cls(verts)
@@ -1129,7 +1181,6 @@ class Chain(Geometry):
         self._len = None
         self._arclen = None
         self._bounding_box = None
-        self._closed = True
 
     @property
     def vertices(self):
@@ -1249,14 +1300,45 @@ class Chain(Geometry):
     @property
     def segments(self):
         """
-        Returns the segments that compose the Chain
+        Returns the segments that compose the Chain. For segments with one point
+        on the boundary, its _open attribute will be set correctly.
         """
-        return [[LineSegment(a, b) for (a, b) in zip(part[:-1], part[1:])] for part in self._vertices]
+        segments = [[LineSegment(a, b) for (a, b) in zip(part[:-1], part[1:])] 
+                     for part in self._vertices]
+        if not self._is_open:
+            return segments
+        else:
+            from .set_ops import boundary
+            bnd = boundary(self)
+            bnd = [pt._Point__loc for pt in bnd]
+            for i, part in enumerate(segments):
+                for j, seg in enumerate(part):
+                    p1, p2 = seg.p1 in bnd, seg.p2 in bnd
+                    if (p1 and p2):
+                        segments[i][j]._open = 1
+                    elif p1:
+                        segments[i][j]._open = 2
+                    elif p2:
+                        segments[i][j]._open = 3
+                    else:
+                        segments[i][j]._open = 0
+            return segments
 
     @property
-    def is_closed(self):
-        return self._closed
-
+    def _is_open(self):
+        return self._open
+    
+    @property
+    def _segment_set(self):
+        """
+        The flat set of unique line segments defining the chain.
+        """
+        try:
+            return self.__segments
+        except AttributeError:
+            self.__segment_set = set()
+            [self.__segments.update(pt) for pt in self.segments]
+            return self.__segment_set
 
 class Ring(Geometry):
     """
@@ -1299,6 +1381,14 @@ class Ring(Geometry):
 
     def __len__(self):
         return len(self.vertices)
+
+    def __hash__(self):
+        return hash(self.vertices)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return np.array_equal(self.vertices, other.vertices)
 
     @property
     def len(self):
@@ -1461,8 +1551,8 @@ class Ring(Geometry):
             return True
 
     @property
-    def is_closed(self):
-        return True
+    def _is_open(self):
+        return False
     
 
 class Polygon(Geometry):
@@ -1574,15 +1664,26 @@ class Polygon(Geometry):
         self._area = None
         self._centroid = None
         self._len = None
-        self._closed = True
+        self._open = False
 
     def __len__(self):
         return self.len
 
+    def __hash__(self):
+        return hash(tuple([tuple(self._part_rings), tuple(self._hole_rings)]))
+
     def _eq__(self, other):
-        is_polygon = isinstance(other, type(self))
-        same_vertlist = np.array_equal(self.vertices, other.vertices)
-        return is_polygon and same_vertlist
+        if not isinstance(other, type(self)):
+            return False
+        if other._is_open != self._is_open:
+            return False
+        for ring in self._hole_rings:
+            if not (ring in other._hole_rings):
+                return False
+        for ring in self._part_rings:
+            if not (ring in other._part_rings):
+                return False
+        return True
 
     @property
     def len(self):
@@ -1703,7 +1804,6 @@ class Polygon(Geometry):
                     self.bounding_box.right,
                     self.bounding_box.upper]
         return self._bbox
-
 
     @property
     def bounding_box(self):
@@ -1841,8 +1941,8 @@ class Polygon(Geometry):
         return False
     
     @property
-    def is_closed(self):
-        return self._closed
+    def _is_open(self):
+        return self._open
 
     @property
     def _hole_head_in_parts(self):
@@ -1899,17 +1999,32 @@ class Polygon(Geometry):
                      ' ring: {}')
             self.__holes_in_parts = nesting
             return self.__holes_in_parts
-    
+
+    @property
+    def _segments(self):
+        """
+        The flat set of line segments defining the exterior of the polygon.
+        """
+        try:
+            return self.__segments
+        except AttributeError:
+            self.__segments = set()
+            hole_chains = [Chain(r.vertices).segments for r in self._hole_rings]
+            part_chains = [Chain(r.vertices).segments for r in self._part_rings]
+            [[self.__segments.update(pt) for pt in ch] for ch in hole_chains]
+            [[self.__segments.update(pt) for pt in ch] for ch in part_chains]
+            self.__segments = list(self.__segments)
+            return self.__segments
+
     @property
     def is_valid(self):
-        hole_chains = [Chain(r.vertices).segments for r in self._hole_rings]
-        part_chains = [Chain(r.vertices).segments for r in self._part_rings]
-        segment_set = set([])
-        [[segment_set.update(pt) for pt in ch] for ch in hole_chains]
-        [[segment_set.update(pt) for pt in ch] for ch in part_chains]
+        """
+        Checks whether or not any boundary segments intersect any other segment
+        """
+        segment_set = copy.copy(self._segment_set)
         while segment_set:
             current = segment_set.pop()
-            current._closed = False
+            current._open = True
             self_intersecting =[current.intersect(other) for other in segment_set]
             if any(self_intersecting):
                 return current, segment_set
@@ -1966,7 +2081,7 @@ class Rectangle(Polygon):
         self.lower = float(lower)
         self.right = float(right)
         self.upper = float(upper)
-        self._closed = True
+        self._open = False
 
     def __nonzero__(self):
         """
@@ -2118,8 +2233,8 @@ class Rectangle(Polygon):
         return self.upper - self.lower
 
     @property
-    def is_closed(self):
-        return self._closed
+    def _is_open(self):
+        return self._open
 
 def ogc_type(sh):
     """

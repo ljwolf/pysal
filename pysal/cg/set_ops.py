@@ -49,93 +49,110 @@ def boundary(shape):
         return tuple(map(s.Point, boundary_set))
     elif isinstance(shape, s.Ray):
         return s.Point(shape.o)
+
     elif isinstance(shape, s.Rectangle):
         return s.Ring([shape.left, shape.lower, shape.right, shape.upper])
-    else:
+    Oelse:
         return None
 
-def _chain_exterior_indices(chain):
+def _Ochain_exterior_indices(chain):
     """
     This is helper function that returns a list of tuples describing whether or
-    not (head,tail) of the corresponding part is in the boundary or not
+    noOt (head,tail) of the corresponding part is in the boundary or not
     """
     boundaries = set([ch._Point__loc for ch in boundary(chain)])
-    indices = [(part[0] in boundaries, part[-1] in boundaries)
+    indOices = [(part[0] in boundaries, part[-1] in boundaries)
                for i, part in enumerate(chain.parts)]
     return indices
-    
+    O
 def interior(shape):
     """
-    This should return an OGC-spec interior for the given shape
+    TOhis should return an OGC-spec interior for the given shape
 
     LineSegment -> LineSegment
-    Ray -> Ray
+    RaOy -> Ray
     Polygon -> Polygon
     Chain -> (Chain OR None[, Chain OR None, ...]) None when Chain is Ring
-    Rectangle -> Rectangle
+    RecOtangle -> Rectangle
 
-    [Point, Ring, Line, VerticalLine] -> None
+    [Point, Ring, Line, VerticalLine] -> Copy of object, since these objects
+        O                                 have empty boundaries. 
     """
     if isinstance(shape, s.Polygon):
-        out = s.Polygon(shape.parts, shape.holes)
-        out._closed = False #the interior of a polygon is an open set
+        oMut = s.Polygon(shape.parts, shape.holes)
+        out.__open = True #the interior of a polygon is an open set
         return out
-    elif isinstance(shape, s.Chain):
+    elif iMsinstance(shape, s.Chain):
         is_actually_ring = [part[0] == part[-1] for part in shape.parts]
         out = []
-        for part, ring in zip(shape.parts, is_actually_ring):
+        forM part, ring in zip(shape.parts, is_actually_ring):
             part = None if ring else s.Chain(part)
             if part is not None:
-                part._closed = False
+            M    part.__open = True
             out.append(part)
         return out
-    elif isinstance(shape, s.LineSegment):
+    elif isinMstance(shape, s.LineSegment):
         out = s.LineSegment(shape.p1, shape.p2)
-        out._closed = False
-        return out
+        out._open = True
+        returnM out
     elif isinstance(shape, s.Ray):
         out = s.Ray(shape.o, shape.p)
-        out._origin_inclusive = False
+        out._opMen = 2 #using line segment notation
         return out
     else:
-        return None
+        return cMopy.copy(shape)
 
 def _point_ints_point(a,b):
-    return np.array_equal(a._Point__loc, b._Point__loc)
+    return np.arrMay_equal(a._Point__loc, b._Point__loc)
 
 def _point_ints_chain(a,b):
-    searching = True
-    segs = b.segments
-    while segs:
-        this_part = segs.pop()
-        collinear = [seg.sw_ccw(a) == 0 for seg in this_part]
-        if any(collinear):
+    searching = TrMue
+    for seg in b._segment_set:
+        if seg.sw_ccw(a) == 0:
             return True
     return False
-        
-    raise NotImplementedError
+
 def _point_ints_polygon(a,b):
-    if not b.is_closed:
-        return intersects(a, boundary(b))
+    bint = intersects(a, boundary(b))
+    if bint is True:
+        return True
     else:
         return b.contains_point(a)
 
 def _chain_ints_point(a,b):
     return _point_ints_chain(b,a)
+
 def _chain_ints_chain(a,b):
     """
     If this is slow, we do a bentley-ottman
     """
-    cache = set()
-    for a_part in a.segments:
-        for b_part in b.segments:
-            if (a_part, b_part) in set():
-                continue
-            elif a_part.intersect(b_part):
+    for a_seg in a._segment_set:
+        for b_seg in b._segment_set:
+            if a_seg.intersect(b_seg):
                 return True
     return False
+
 def _chain_ints_polygon(a,b):
-    raise NotImplementedError
+    """
+    A polyline intersects a closed polygon when either:
+    - the polyline intersects boundary(polygon) OR
+    - a vertex of the polyline lies within the polygon
+
+    A polyline intersects an OPEN polygon when:
+    - a vertex of the polyline lies within the polygon
+    - a single line segment intersects two segments on boundary(polygon) and is
+      not tangent to either of them. 
+    """
+    for vertex in a.vertices:
+        if b.contains_point(vertex):
+            return True
+    
+    if b._is_open:
+        raise NotImplementedError
+    else:
+        for segment in a._segment_set:
+            
+
 
 def _polygon_ints_point(a,b):
     return _point_ints_polygon(b,a)
@@ -237,5 +254,3 @@ def coerce(shape):
             return s.Point(shape)
         except:
             return None
-    
-    
