@@ -8,9 +8,11 @@ import pysal
 import copy
 from scipy.sparse import isspmatrix_csr
 from numpy import ones
+from warnings import warn
 
 __all__ = ['w_union', 'w_intersection', 'w_difference',
-           'w_symmetric_difference', 'w_subset', 'w_clip']
+           'w_symmetric_difference', 'w_subset', 'w_clip', 
+           'w_stack', 'w_stitch', 'w_stitch_single']
 
 
 def w_union(w1, w2, silent_island_warning=False):
@@ -585,6 +587,10 @@ def w_stack(ws, silent_island_warning=False):
     {'0-1': 1.0, '0-3': 1.0}
     >>>
     '''
+    if not all([(w.transform == 'O') for w in ws]):
+        warn('Weights are transformed. Attempting to cast to original'
+             ' transformation', UserWarning, stacklevel=2)
+        [w.transform('O') for w in ws]
     out_neigh = {}
     out_weigh = {}
     out_ids = []
@@ -698,6 +704,10 @@ def w_stitch(ws, back=0, forth=0, silent_island_warning=False):
     >>> w_stitched1b1f['1-0']
     {'0-1': 1.0, '0-3': 1.0, '1-1': 1.0, '1-3': 1.0, '2-1': 1.0, '2-3': 1.0}
     '''
+    if not all([(w.transform == 'O') for w in ws]):
+        warn('Weights are transformed. Attempting to cast to original'
+             ' transformation', UserWarning, stacklevel=2)
+        [w.transform('O') for w in ws]
     out_neigh = {}
     out_weigh = {}
     out_ids = []
@@ -791,7 +801,7 @@ def w_stitch_single(w, t, back=0, forth=0, silent_island_warning=False):
 
     >>> w_stitched = ps.weights.Wsets.w_stitch_single(w, 3)
 
-    First, we can check tha the order of the observations is created as
+    First, we can check that the order of the observations is created as
     estipulated:
 
     >>> w_stitched.id_order
