@@ -8,3 +8,6 @@ omit =
     __init__.py 
     */contrib/* 
     */test/*
+exclude_lines = 
+    if __name__ == .__main__.:
+    if __name__== .__main__.:
