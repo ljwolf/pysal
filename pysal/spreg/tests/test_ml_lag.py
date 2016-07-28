@@ -8,7 +8,7 @@ from pysal.common import RTOL
 
 @unittest.skipIf(int(scipy.__version__.split(".")[1]) < 11,
         "Max Likelihood requires SciPy version 11 or newer.")
-class TestMLError(unittest.TestCase):
+class TestMLLag(unittest.TestCase):
     def setUp(self):
         db =  pysal.open(pysal.examples.get_path("baltim.dbf"),'r')
         self.ds_name = "baltim.dbf"
