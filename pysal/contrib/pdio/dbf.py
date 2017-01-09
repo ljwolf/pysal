@@ -5,6 +5,7 @@
 import numpy as np
 import pysal as ps
 import pandas as pd
+import io
 
 def check_dups(li):
     """checks duplicates in list of ID values
@@ -43,7 +44,7 @@ def dbfdups(dbfpath,idvar):
     return list(set([x for x in li if li.count(x) > 1]))   
     
 
-def df2dbf(df, dbf_path, my_specs=None):
+def df2dbf(df, dbf_path, my_specs=None, **file_kw):
     '''
     Convert a pandas.DataFrame into a dbf.
 
@@ -98,15 +99,15 @@ def df2dbf(df, dbf_path, my_specs=None):
                      }
         types = [df[i].dtypes.name for i in df.columns]
         specs = [type2spec[t] for t in types]
-    db = ps.open(dbf_path, 'w')
+    db = ps.open(dbf_path, 'w', **file_kw)
     db.header = list(df.columns)
     db.field_spec = specs
     for i, row in df.T.iteritems():
         db.write(row)
-    db.close()
     return dbf_path
 
-def dbf2df(dbf_path, index=None, cols=False, incl_index=False):
+def dbf2df(dbf_path, index=None, 
+           cols=False, incl_index=False, **file_kw):
     '''
     Read a dbf file as a pandas.DataFrame, optionally selecting the index
     variable and which columns are to be loaded.
@@ -132,7 +133,8 @@ def dbf2df(dbf_path, index=None, cols=False, incl_index=False):
     df          : DataFrame
                   pandas.DataFrame object created
     '''
-    db = ps.open(dbf_path)
+    db = ps.open(dbf_path, **file_kw)
+    print(file_kw)
     if cols:
         if incl_index:
             cols.append(index)
