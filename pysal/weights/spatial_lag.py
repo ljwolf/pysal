@@ -187,10 +187,10 @@ def _resolve_ties(i,inty,vals,neighbors,method,w):
     selected.
     """
     if len(vals[vals==vals.max()]) <= 1:
-        return np.argmax(vals)
+        return np.argmax(vals).astype(int)
     elif method.lower() == 'random':
         ties = np.where(vals == vals.max())
-        return np.random.choice(vals[ties])
+        return np.random.choice(vals[ties]).astype(int)
     elif method.lower() == 'tryself':
         vals[inty[w.id2i[i]]] += np.mean(neighbors.values())
         return _resolve_ties(i,inty,vals,neighbors,'random', w)
