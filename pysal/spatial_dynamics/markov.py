@@ -389,25 +389,18 @@ class Spatial_Markov(object):
 
 
     """
-    def __init__(self, y, w, k=4, permutations=0, fixed=False,
+    def __init__(self, y, w, k=None, permutations=0, fixed=False,
                  variable_name=None):
 
         self.y = y
         rows, cols = y.shape
-        self.k = k
         self.cols = cols
         npa = np.array
         self.fixed = fixed
         self.variable_name = variable_name
-        if fixed:
-            yf = y.flatten()
-            yb = pysal.Quantiles(yf, k=k).yb
-            yb.shape = (rows, cols)
-            classes = yb
-        else:
-            classes = npa([pysal.Quantiles(y[:, i], k=k)
-                           .yb for i in np.arange(cols)]).transpose()
+        classes, k = self._maybe_classify(y, k=None, fixed=False)
         classic = Markov(classes)
+        self.k = k
         self.classes = classes
         self.p = classic.p
         self.transitions = classic.transitions
@@ -518,16 +511,27 @@ class Spatial_Markov(object):
             self._x2_dof = k * (k - 1) * (k - 1)
         return self._x2_dof
 
-    def _calc(self, y, w, classes, k):
-        ly = pysal.lag_spatial(w, y)
-        npa = np.array
-        if self.fixed:
-            l_classes = pysal.Quantiles(ly.flatten(), k=k).yb
-            l_classes.shape = ly.shape
+    def _maybe_classify(self, y, k=None, fixed=False):
+        rows, cols = y.shape
+        if len(np.unique(y)) < len(y):
+            classes = y
+            k = len(np.unique(classes))
+
         else:
-            l_classes = npa([pysal.Quantiles(
-                ly[:, i], k=k).yb for i in np.arange(self.cols)])
-            l_classes = l_classes.transpose()
+            if fixed:
+                yf = y.flatten()
+                yb = pysal.Quantiles(yf, k=k).yb
+                yb.shape = (rows, cols)
+                classes = yb
+            else:
+                npa = np.array
+                classes = npa([pysal.Quantiles(y[:, i], k=k)
+                               .yb for i in np.arange(cols)]).transpose()
+        return classes, k
+
+    def _calc(self, y, w, classes, k):
+        ly = pysal.weights.spatial_lag.lag_categorical(w, y)
+        l_classes, k = self._maybe_classify(ly, k=None, fixed=False)
         T = np.zeros((k, k, k))
         n, t = y.shape
         for t1 in range(t - 1):
