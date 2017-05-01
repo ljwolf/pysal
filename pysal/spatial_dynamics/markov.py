@@ -398,7 +398,7 @@ class Spatial_Markov(object):
         npa = np.array
         self.fixed = fixed
         self.variable_name = variable_name
-        classes, k = self._maybe_classify(y, k=None, fixed=False)
+        classes, k = self._maybe_classify(y, k=k, fixed=False)
         classic = Markov(classes)
         self.k = k
         self.classes = classes
@@ -530,8 +530,11 @@ class Spatial_Markov(object):
         return classes, k
 
     def _calc(self, y, w, classes, k):
-        ly = pysal.weights.spatial_lag.lag_categorical(w, y)
-        l_classes, k = self._maybe_classify(ly, k=None, fixed=False)
+        if len(np.unique(y)) < len(y):
+            ly = pysal.weights.spatial_lag.lag_categorical(w, y)
+        else:
+            ly = pysal.weights.spatial_lag.lag_spatial(w, y)
+        l_classes, k = self._maybe_classify(ly, k=k, fixed=False)
         T = np.zeros((k, k, k))
         n, t = y.shape
         for t1 in range(t - 1):
