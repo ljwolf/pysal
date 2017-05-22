@@ -639,8 +639,10 @@ def is_clockwise(vertices):
     if len(vertices) < 3:
         return True
     area = 0.0
-    ax, ay = vertices[0]
-    for bx, by in vertices[1:]:
+    if len(vertices[0]) > 2:
+        vertices = list(zip(list(zip(*vertices))[0:2]))
+    ax, ay, = vertices[0]
+    for bx, by, in vertices[1:]:
         area += ax * by - ay * bx
         ax, ay = bx, by
     bx, by = vertices[0]
